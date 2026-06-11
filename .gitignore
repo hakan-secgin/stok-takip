@@ -1,0 +1,5 @@
+# OS files
+Thumbs.db
+*.swp
+*.swo
+.DS_Store

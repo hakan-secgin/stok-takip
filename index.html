@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aşı &amp; Küpe Stok Takip Programı</title>
+<meta name="theme-color" content="#0b5e2a">
+<meta name="description" content="Aşı ve küpe stok takip, raporlama ve yedekleme programı">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Tahoma, Arial, sans-serif; }
+  body { background:#eef2f6; color:#222; min-height:100vh; }
+  header { background:linear-gradient(135deg,#0b5e2a,#107a3a); color:#fff; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+  header h1 { font-size:1.35rem; display:flex; align-items:center; gap:10px; }
+  header .sub { font-size:.8rem; opacity:.85; }
+  nav { display:flex; gap:4px; background:#0a4d23; padding:0 16px; flex-wrap:wrap; }
+  nav button { background:transparent; border:none; color:#cfe8d8; padding:13px 20px; font-size:.95rem; cursor:pointer; border-bottom:3px solid transparent; transition:.15s; }
+  nav button:hover { background:rgba(255,255,255,.08); color:#fff; }
+  nav button.active { color:#fff; border-bottom-color:#ffd23f; background:rgba(255,255,255,.08); font-weight:600; }
+  main { max-width:1200px; margin:20px auto; padding:0 16px 60px; }
+  .tab { display:none; }
+  .tab.show { display:block; animation:fade .2s; }
+  @keyframes fade { from{opacity:0; transform:translateY(6px);} to{opacity:1;} }
+  .card { background:#fff; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:20px; margin-bottom:18px; }
+  .card h2 { font-size:1.05rem; color:#0b5e2a; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid #e3ece6; display:flex; align-items:center; gap:8px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+  label { display:block; font-size:.8rem; font-weight:600; color:#444; margin-bottom:4px; }
+  input, select, textarea { width:100%; padding:9px 10px; border:1px solid #c5d0c9; border-radius:6px; font-size:.92rem; background:#fff; }
+  input:focus, select:focus { outline:2px solid #107a3a44; border-color:#107a3a; }
+  .btn { display:inline-flex; align-items:center; gap:6px; border:none; border-radius:6px; padding:10px 18px; font-size:.92rem; font-weight:600; cursor:pointer; transition:.15s; }
+  .btn-green { background:#107a3a; color:#fff; } .btn-green:hover { background:#0b5e2a; }
+  .btn-blue { background:#1565c0; color:#fff; } .btn-blue:hover { background:#0d4a8f; }
+  .btn-red { background:#c62828; color:#fff; } .btn-red:hover { background:#9c1f1f; }
+  .btn-orange { background:#e58f00; color:#fff; } .btn-orange:hover { background:#c47a00; }
+  .btn-gray { background:#e3e8ec; color:#333; } .btn-gray:hover { background:#d2d9de; }
+  .btn-sm { padding:5px 10px; font-size:.78rem; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; margin-top:10px; }
+  th { background:#0b5e2a; color:#fff; text-align:left; padding:9px 8px; font-size:.78rem; text-transform:uppercase; letter-spacing:.3px; }
+  td { padding:8px; border-bottom:1px solid #e7ecea; }
+  tr:hover td { background:#f4f9f6; }
+  .badge { display:inline-block; padding:3px 9px; border-radius:12px; font-size:.72rem; font-weight:700; }
+  .b-asi { background:#e3f2fd; color:#1565c0; }
+  .b-kupe { background:#fff3e0; color:#e58f00; }
+  .b-giris { background:#e8f5e9; color:#107a3a; }
+  .b-cikis { background:#ffebee; color:#c62828; }
+  .b-warn { background:#fff8e1; color:#b26a00; }
+  .b-danger { background:#ffebee; color:#c62828; }
+  .b-ok { background:#e8f5e9; color:#107a3a; }
+  .alert { border-radius:8px; padding:13px 16px; margin-bottom:14px; font-size:.9rem; display:flex; gap:10px; align-items:flex-start; }
+  .alert-warn { background:#fff8e1; border:1px solid #ffd54f; color:#7a5200; }
+  .alert-danger { background:#ffebee; border:1px solid #ef9a9a; color:#8e1c1c; }
+  .alert-info { background:#e3f2fd; border:1px solid #90caf9; color:#0d4a8f; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:18px; }
+  .stat { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.08); border-left:5px solid #107a3a; }
+  .stat .num { font-size:1.6rem; font-weight:700; color:#0b5e2a; }
+  .stat .lbl { font-size:.78rem; color:#666; margin-top:2px; }
+  .stat.s-blue { border-left-color:#1565c0; } .stat.s-blue .num { color:#1565c0; }
+  .stat.s-orange { border-left-color:#e58f00; } .stat.s-orange .num { color:#e58f00; }
+  .stat.s-red { border-left-color:#c62828; } .stat.s-red .num { color:#c62828; }
+  .row-flex { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .hidden { display:none !important; }
+  .table-wrap { overflow-x:auto; }
+  .muted { color:#888; font-size:.82rem; }
+  .toast { position:fixed; bottom:24px; right:24px; background:#222; color:#fff; padding:13px 20px; border-radius:8px; font-size:.9rem; box-shadow:0 4px 16px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:.3s; z-index:99; max-width:340px; }
+  .toast.show { opacity:1; }
+  .toast.ok { background:#107a3a; } .toast.err { background:#c62828; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .seg button { border:1px solid #c5d0c9; background:#fff; padding:8px 16px; border-radius:20px; cursor:pointer; font-size:.85rem; }
+  .seg button.on { background:#0b5e2a; color:#fff; border-color:#0b5e2a; font-weight:600; }
+  footer { text-align:center; padding:14px; color:#999; font-size:.78rem; }
+  @media print { nav, header, .no-print { display:none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💉 Aşı &amp; Küpe Stok Takip Programı</h1>
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+    <button id="installBtn" class="btn btn-sm hidden" style="background:#ffd23f; color:#333" onclick="installPWA()">⬇️ Masaüstüne Kur</button>
+    <div class="sub" id="todayLbl"></div>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="anasayfa" onclick="showTab('anasayfa',this)">🏠 Ana Sayfa</button>
+  <button data-tab="veri" onclick="showTab('veri',this)">📋 Veri</button>
+  <button data-tab="giris" onclick="showTab('giris',this)">📥 Stok Giriş</button>
+  <button data-tab="cikis" onclick="showTab('cikis',this)">📤 Stok Çıkış</button>
+  <button data-tab="rapor" onclick="showTab('rapor',this)">📊 Raporlar</button>
+  <button data-tab="yedek" onclick="showTab('yedek',this)">💾 Yedekleme</button>
+</nav>
+
+<main>
+
+<!-- ════════ ANA SAYFA ════════ -->
+<div class="tab show" id="tab-anasayfa">
+  <div id="sktAlertBox"></div>
+  <div class="stats" id="statBox"></div>
+  <div class="card">
+    <h2>📦 Güncel Stok Durumu</h2>
+    <div class="table-wrap"><table id="stokTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>🕒 Son 10 Hareket</h2>
+    <div class="table-wrap"><table id="sonHareketTable"></table></div>
+  </div>
+</div>
+
+<!-- ════════ VERİ ════════ -->
+<div class="tab" id="tab-veri">
+  <div class="card">
+    <h2>➕ Yeni Ürün Tanımla</h2>
+    <div class="grid">
+      <div>
+        <label>Ürün Tipi *</label>
+        <select id="p_tip" onchange="toggleProductFields()">
+          <option value="asi">💉 Aşı</option>
+          <option value="kupe">🏷️ Küpe</option>
+        </select>
+      </div>
+      <div>
+        <label>Ürün İsmi *</label>
+        <input type="text" id="p_ad" placeholder="örn: Şap Aşısı / Sığır Küpesi">
+      </div>
+      <div class="f-asi">
+        <label>Doz (1 şişedeki doz) *</label>
+        <input type="number" id="p_doz" min="0" placeholder="örn: 50">
+      </div>
+      <div class="f-asi">
+        <label>Şişe Adedi (başlangıç stok) *</label>
+        <input type="number" id="p_sise" min="0" placeholder="örn: 100">
+      </div>
+      <div class="f-asi">
+        <label>Son Kullanma Tarihi *</label>
+        <input type="date" id="p_skt">
+      </div>
+      <div class="f-kupe hidden">
+        <label>Küpe Sayısı (başlangıç stok) *</label>
+        <input type="number" id="p_kupesayi" min="0" placeholder="örn: 5000">
+      </div>
+      <div class="f-kupe hidden">
+        <label>Küpe Seri Başlangıç *</label>
+        <input type="text" id="p_seribas" placeholder="örn: TR1200000001">
+      </div>
+      <div class="f-kupe hidden">
+        <label>Küpe Seri Bitiş *</label>
+        <input type="text" id="p_seribit" placeholder="örn: TR1200005000">
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn btn-green" onclick="addProduct()">➕ Ürünü Kaydet</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🗂️ Kayıtlı Ürünler</h2>
+    <div class="table-wrap"><table id="urunTable"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>🏘️ İlçe Tanımları</h2>
+    <div class="row-flex">
+      <div style="flex:1; min-width:200px">
+        <label>İlçe İsmi</label>
+        <input type="text" id="d_ad" placeholder="örn: Merkez">
+      </div>
+      <button class="btn btn-green" onclick="addDistrict()">➕ İlçe Ekle</button>
+    </div>
+    <div class="table-wrap"><table id="ilceTable"></table></div>
+  </div>
+</div>
+
+<!-- ════════ STOK GİRİŞ ════════ -->
+<div class="tab" id="tab-giris">
+  <div class="card">
+    <h2>📥 Stok Giriş Kaydı</h2>
+    <div class="grid">
+      <div>
+        <label>Ürün İsmi *</label>
+        <select id="g_urun" onchange="toggleMoveFields('g')"></select>
+      </div>
+      <div>
+        <label>Tarih *</label>
+        <input type="date" id="g_tarih">
+      </div>
+      <div class="g-asi">
+        <label>Giriş Şişe Sayısı *</label>
+        <input type="number" id="g_sise" min="1" placeholder="örn: 20" oninput="calcDoz('g')">
+      </div>
+      <div class="g-asi">
+        <label>Giriş Dozu (otomatik = şişe × doz)</label>
+        <input type="number" id="g_doz" min="0" placeholder="otomatik hesaplanır">
+      </div>
+      <div class="g-kupe hidden">
+        <label>Küpe Sayısı *</label>
+        <input type="number" id="g_kupesayi" min="1" placeholder="örn: 1000">
+      </div>
+      <div class="g-kupe hidden">
+        <label>Küpe Seri Başlangıç *</label>
+        <input type="text" id="g_seribas" placeholder="örn: TR1200005001">
+      </div>
+      <div class="g-kupe hidden">
+        <label>Küpe Seri Bitiş *</label>
+        <input type="text" id="g_seribit" placeholder="örn: TR1200006000">
+      </div>
+      <div>
+        <label>Açıklama</label>
+        <input type="text" id="g_not" placeholder="isteğe bağlı not">
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn btn-green" onclick="saveMove('giris')">📥 Girişi Kaydet</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>📜 Giriş Hareketleri</h2>
+    <div class="table-wrap"><table id="girisTable"></table></div>
+  </div>
+</div>
+
+<!-- ════════ STOK ÇIKIŞ ════════ -->
+<div class="tab" id="tab-cikis">
+  <div class="card">
+    <h2>📤 Stok Çıkış Kaydı</h2>
+    <div class="grid">
+      <div>
+        <label>Ürün İsmi *</label>
+        <select id="c_urun" onchange="toggleMoveFields('c')"></select>
+      </div>
+      <div>
+        <label>Tarih *</label>
+        <input type="date" id="c_tarih">
+      </div>
+      <div>
+        <label>İlçe İsmi *</label>
+        <select id="c_ilce"></select>
+      </div>
+      <div class="c-asi">
+        <label>Çıkış Şişe Sayısı *</label>
+        <input type="number" id="c_sise" min="1" placeholder="örn: 5" oninput="calcDoz('c')">
+      </div>
+      <div class="c-asi">
+        <label>Çıkış Dozu (otomatik = şişe × doz)</label>
+        <input type="number" id="c_doz" min="0" placeholder="otomatik hesaplanır">
+      </div>
+      <div class="c-kupe hidden">
+        <label>Küpe Sayısı *</label>
+        <input type="number" id="c_kupesayi" min="1" placeholder="örn: 250">
+      </div>
+      <div class="c-kupe hidden">
+        <label>Küpe Seri Başlangıç *</label>
+        <input type="text" id="c_seribas" placeholder="örn: TR1200000001">
+      </div>
+      <div class="c-kupe hidden">
+        <label>Küpe Seri Bitiş *</label>
+        <input type="text" id="c_seribit" placeholder="örn: TR1200000250">
+      </div>
+      <div>
+        <label>Açıklama</label>
+        <input type="text" id="c_not" placeholder="isteğe bağlı not">
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn btn-red" onclick="saveMove('cikis')">📤 Çıkışı Kaydet</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>📜 Çıkış Hareketleri</h2>
+    <div class="table-wrap"><table id="cikisTable"></table></div>
+  </div>
+</div>
+
+<!-- ════════ RAPORLAR ════════ -->
+<div class="tab" id="tab-rapor">
+  <div id="sktAlertBox2"></div>
+  <div class="card">
+    <h2>📊 Rapor Seçimi</h2>
+    <div class="seg" id="raporSeg">
+      <button class="on" data-r="gunluk" onclick="setRapor('gunluk',this)">📅 Günlük</button>
+      <button data-r="aylik" onclick="setRapor('aylik',this)">🗓️ Aylık</button>
+      <button data-r="yillik" onclick="setRapor('yillik',this)">📆 Yıllık</button>
+      <button data-r="asi" onclick="setRapor('asi',this)">💉 Aşı Raporu</button>
+      <button data-r="kupe" onclick="setRapor('kupe',this)">🏷️ Küpe Raporu</button>
+      <button data-r="ilce" onclick="setRapor('ilce',this)">🏘️ İlçe Raporu</button>
+      <button data-r="skt" onclick="setRapor('skt',this)">⏰ SKT Raporu</button>
+      <button data-r="stok" onclick="setRapor('stok',this)">📦 Stok Raporu</button>
+    </div>
+    <div class="row-flex" id="raporFiltre">
+      <div id="rf-gun">
+        <label>Gün Seç</label>
+        <input type="date" id="r_gun">
+      </div>
+      <div id="rf-ay" class="hidden">
+        <label>Ay Seç</label>
+        <input type="month" id="r_ay">
+      </div>
+      <div id="rf-yil" class="hidden">
+        <label>Yıl Seç</label>
+        <input type="number" id="r_yil" min="2000" max="2100" style="width:120px">
+      </div>
+      <div id="rf-ilce" class="hidden">
+        <label>İlçe Seç</label>
+        <select id="r_ilce"></select>
+      </div>
+      <button class="btn btn-blue" onclick="runRapor()">🔍 Raporu Göster</button>
+      <button class="btn btn-green" onclick="exportRapor()">📗 Excel'e Aktar</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2 id="raporBaslik">📄 Rapor Sonucu</h2>
+    <div id="raporOzet"></div>
+    <div class="table-wrap"><table id="raporTable"></table></div>
+  </div>
+</div>
+
+<!-- ════════ YEDEKLEME ════════ -->
+<div class="tab" id="tab-yedek">
+  <div class="card">
+    <h2>💾 Veri Tabanı Yedekleme</h2>
+    <div class="alert alert-info">ℹ️ <div>Tüm veriler (ürünler, ilçeler, stok hareketleri) bu bilgisayarın tarayıcısında otomatik olarak saklanır. Program çökmesi, bilgisayar değişimi veya yeni programa geçiş durumlarına karşı <b>düzenli olarak yedek dosyası indirin</b>. Yedek dosyası başka bir bilgisayarda geri yüklenebilir.</div></div>
+    <div class="row-flex">
+      <button class="btn btn-green" onclick="downloadBackup()">⬇️ Yedek Dosyası İndir (.json)</button>
+      <button class="btn btn-blue" onclick="document.getElementById('restoreFile').click()">⬆️ Yedekten Geri Yükle</button>
+      <input type="file" id="restoreFile" accept=".json" class="hidden" onchange="restoreBackup(this)">
+      <button class="btn btn-green" onclick="exportAllExcel()">📗 Tüm Verileri Excel'e Aktar</button>
+    </div>
+    <p class="muted" style="margin-top:12px" id="backupInfo"></p>
+  </div>
+  <div class="card">
+    <h2>⚠️ Tehlikeli Bölge</h2>
+    <p class="muted" style="margin-bottom:10px">Tüm verileri kalıcı olarak siler. Önce mutlaka yedek alın!</p>
+    <button class="btn btn-red" onclick="wipeAll()">🗑️ Tüm Verileri Sıfırla</button>
+  </div>
+</div>
+
+</main>
+
+<footer>Aşı &amp; Küpe Stok Takip Programı — Veriler tarayıcıda saklanır, düzenli yedek almayı unutmayın.</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════ VERİTABANI ═══════════════ */
+const DB_KEY = 'asiKupeStokDB';
+const DB_AUTOBAK = 'asiKupeStokDB_autobackup';
+let DB = { products: [], districts: [], movements: [], lastBackup: null };
+
+function loadDB(){
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) { DB = JSON.parse(raw); return; }
+    const bak = localStorage.getItem(DB_AUTOBAK);
+    if (bak) { DB = JSON.parse(bak); toast('Ana kayıt bulunamadı, otomatik yedekten geri yüklendi.', 'ok'); saveDB(); }
+  } catch(e) {
+    try {
+      const bak = localStorage.getItem(DB_AUTOBAK);
+      if (bak) { DB = JSON.parse(bak); toast('Veri bozulmuştu, otomatik yedekten kurtarıldı!', 'ok'); saveDB(); }
+    } catch(e2) { toast('Veri okunamadı, boş veritabanı açıldı.', 'err'); }
+  }
+}
+function saveDB(){
+  const json = JSON.stringify(DB);
+  localStorage.setItem(DB_KEY, json);
+  localStorage.setItem(DB_AUTOBAK, json); // her kayıtta otomatik ikinci kopya
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const fmtD = d => { if(!d) return '—'; const [y,m,g]=d.split('-'); return `${g}.${m}.${y}`; };
+const today = () => new Date().toISOString().slice(0,10);
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ═══════════════ GENEL ═══════════════ */
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (type||'');
+  clearTimeout(t._tm); t._tm = setTimeout(()=> t.className='toast', 3200);
+}
+function showTab(id, btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('show'));
+  document.getElementById('tab-'+id).classList.add('show');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshAll();
+}
+
+/* ═══════════════ STOK HESABI ═══════════════ */
+function stockOf(p){
+  let sise = num(p.sise), doz = num(p.sise) * num(p.doz), kupe = num(p.kupeSayi);
+  DB.movements.filter(m=>m.productId===p.id).forEach(m=>{
+    const sign = m.type==='giris' ? 1 : -1;
+    sise += sign * num(m.sise);
+    doz  += sign * (num(m.doz) || num(m.sise)*num(p.doz));
+    kupe += sign * num(m.kupeSayi);
+  });
+  return { sise, doz, kupe };
+}
+
+/* ═══════════════ SKT KONTROL ═══════════════ */
+function sktStatus(p){
+  if (p.tip!=='asi' || !p.skt) return null;
+  const diff = Math.ceil((new Date(p.skt) - new Date(today())) / 86400000);
+  if (diff < 0)  return { cls:'b-danger', txt:'SÜRESİ GEÇTİ', days:diff };
+  if (diff <= 30) return { cls:'b-warn', txt: diff+' gün kaldı', days:diff };
+  return { cls:'b-ok', txt:'Uygun', days:diff };
+}
+function renderSktAlerts(){
+  const soon = DB.products.filter(p=>{ const s=sktStatus(p); return s && s.days<=30; });
+  let html = '';
+  if (soon.length){
+    const exp  = soon.filter(p=>sktStatus(p).days<0);
+    const warn = soon.filter(p=>sktStatus(p).days>=0);
+    if (exp.length)
+      html += `<div class="alert alert-danger">🚨 <div><b>SÜRESİ GEÇMİŞ ÜRÜNLER:</b> ${exp.map(p=>`${esc(p.ad)} (SKT: ${fmtD(p.skt)})`).join(', ')}</div></div>`;
+    if (warn.length)
+      html += `<div class="alert alert-warn">⏰ <div><b>SON KULLANMA TARİHİ YAKLAŞANLAR (30 gün içinde):</b> ${warn.map(p=>`${esc(p.ad)} (SKT: ${fmtD(p.skt)} – ${sktStatus(p).days} gün)`).join(', ')}</div></div>`;
+  }
+  document.getElementById('sktAlertBox').innerHTML = html;
+  document.getElementById('sktAlertBox2').innerHTML = html;
+}
+
+/* ═══════════════ VERİ SEKMESİ ═══════════════ */
+function toggleProductFields(){
+  const k = document.getElementById('p_tip').value === 'kupe';
+  document.querySelectorAll('.f-asi').forEach(e=>e.classList.toggle('hidden', k));
+  document.querySelectorAll('.f-kupe').forEach(e=>e.classList.toggle('hidden', !k));
+}
+function addProduct(){
+  const tip = document.getElementById('p_tip').value;
+  const ad  = document.getElementById('p_ad').value.trim();
+  if (!ad) return toast('Ürün ismi giriniz!', 'err');
+  if (DB.products.some(p=>p.ad.toLowerCase()===ad.toLowerCase())) return toast('Bu isimde ürün zaten kayıtlı!', 'err');
+  const p = { id: uid(), tip, ad, doz:0, sise:0, skt:'', kupeSayi:0, seriBas:'', seriBit:'' };
+  if (tip==='asi'){
+    p.doz  = num(document.getElementById('p_doz').value);
+    p.sise = num(document.getElementById('p_sise').value);
+    p.skt  = document.getElementById('p_skt').value;
+    if (!p.doz)  return toast('Doz giriniz!', 'err');
+    if (!p.skt)  return toast('Son kullanma tarihi giriniz!', 'err');
+  } else {
+    p.kupeSayi = num(document.getElementById('p_kupesayi').value);
+    p.seriBas  = document.getElementById('p_seribas').value.trim();
+    p.seriBit  = document.getElementById('p_seribit').value.trim();
+    if (!p.seriBas || !p.seriBit) return toast('Küpe seri aralığını giriniz!', 'err');
+  }
+  DB.products.push(p); saveDB(); refreshAll();
+  ['p_ad','p_doz','p_sise','p_skt','p_kupesayi','p_seribas','p_seribit'].forEach(i=>document.getElementById(i).value='');
+  toast('Ürün kaydedildi ✓', 'ok');
+}
+function delProduct(id){
+  const used = DB.movements.some(m=>m.productId===id);
+  if (!confirm(used ? 'Bu ürünün stok hareketleri var! Ürün ve TÜM hareketleri silinecek. Emin misiniz?' : 'Ürün silinsin mi?')) return;
+  DB.products = DB.products.filter(p=>p.id!==id);
+  DB.movements = DB.movements.filter(m=>m.productId!==id);
+  saveDB(); refreshAll(); toast('Ürün silindi.', 'ok');
+}
+function renderProducts(){
+  const t = document.getElementById('urunTable');
+  if (!DB.products.length){ t.innerHTML = '<tr><td class="muted">Henüz ürün tanımlanmadı.</td></tr>'; return; }
+  let h = '<tr><th>Tip</th><th>Ürün İsmi</th><th>Doz/Şişe</th><th>Şişe (Stok)</th><th>Toplam Doz</th><th>Küpe (Stok)</th><th>Seri Aralığı</th><th>SKT</th><th>Durum</th><th></th></tr>';
+  DB.products.forEach(p=>{
+    const s = stockOf(p), st = sktStatus(p);
+    h += `<tr>
+      <td><span class="badge ${p.tip==='asi'?'b-asi':'b-kupe'}">${p.tip==='asi'?'AŞI':'KÜPE'}</span></td>
+      <td><b>${esc(p.ad)}</b></td>
+      <td>${p.tip==='asi'?p.doz:'—'}</td>
+      <td>${p.tip==='asi'?s.sise:'—'}</td>
+      <td>${p.tip==='asi'?s.doz:'—'}</td>
+      <td>${p.tip==='kupe'?s.kupe:'—'}</td>
+      <td>${p.tip==='kupe'?esc(p.seriBas)+' – '+esc(p.seriBit):'—'}</td>
+      <td>${p.tip==='asi'?fmtD(p.skt):'—'}</td>
+      <td>${st?`<span class="badge ${st.cls}">${st.txt}</span>`:'—'}</td>
+      <td><button class="btn btn-red btn-sm" onclick="delProduct('${p.id}')">Sil</button></td>
+    </tr>`;
+  });
+  t.innerHTML = h;
+}
+function addDistrict(){
+  const ad = document.getElementById('d_ad').value.trim();
+  if (!ad) return toast('İlçe ismi giriniz!', 'err');
+  if (DB.districts.some(d=>d.toLowerCase()===ad.toLowerCase())) return toast('Bu ilçe zaten kayıtlı!', 'err');
+  DB.districts.push(ad); DB.districts.sort((a,b)=>a.localeCompare(b,'tr'));
+  saveDB(); refreshAll();
+  document.getElementById('d_ad').value='';
+  toast('İlçe eklendi ✓', 'ok');
+}
+function delDistrict(ad){
+  if (!confirm(`"${ad}" ilçesi silinsin mi? (Geçmiş hareketlerdeki kayıtlar korunur)`)) return;
+  DB.districts = DB.districts.filter(d=>d!==ad);
+  saveDB(); refreshAll(); toast('İlçe silindi.', 'ok');
+}
+function renderDistricts(){
+  const t = document.getElementById('ilceTable');
+  if (!DB.districts.length){ t.innerHTML = '<tr><td class="muted">Henüz ilçe tanımlanmadı.</td></tr>'; return; }
+  let h = '<tr><th>#</th><th>İlçe İsmi</th><th>Toplam Çıkış Hareketi</th><th></th></tr>';
+  DB.districts.forEach((d,i)=>{
+    const cnt = DB.movements.filter(m=>m.type==='cikis'&&m.ilce===d).length;
+    h += `<tr><td>${i+1}</td><td><b>${esc(d)}</b></td><td>${cnt}</td>
+      <td><button class="btn btn-red btn-sm" onclick="delDistrict('${esc(d)}')">Sil</button></td></tr>`;
+  });
+  t.innerHTML = h;
+}
+
+/* ═══════════════ STOK GİRİŞ / ÇIKIŞ ═══════════════ */
+function fillSelects(){
+  ['g_urun','c_urun'].forEach(id=>{
+    const sel = document.getElementById(id), cur = sel.value;
+    sel.innerHTML = '<option value="">— Ürün seçiniz —</option>' +
+      DB.products.map(p=>`<option value="${p.id}">${p.tip==='asi'?'💉':'🏷️'} ${esc(p.ad)}</option>`).join('');
+    sel.value = cur;
+  });
+  const ic = document.getElementById('c_ilce'), cur2 = ic.value;
+  ic.innerHTML = '<option value="">— İlçe seçiniz —</option>' + DB.districts.map(d=>`<option>${esc(d)}</option>`).join('');
+  ic.value = cur2;
+  const ri = document.getElementById('r_ilce'), cur3 = ri.value;
+  ri.innerHTML = '<option value="">Tüm İlçeler</option>' + DB.districts.map(d=>`<option>${esc(d)}</option>`).join('');
+  ri.value = cur3;
+}
+function toggleMoveFields(pre){
+  const pid = document.getElementById(pre+'_urun').value;
+  const p = DB.products.find(x=>x.id===pid);
+  const isKupe = p && p.tip==='kupe';
+  document.querySelectorAll('.'+pre+'-asi').forEach(e=>e.classList.toggle('hidden', !p || isKupe));
+  document.querySelectorAll('.'+pre+'-kupe').forEach(e=>e.classList.toggle('hidden', !p || !isKupe));
+}
+function calcDoz(pre){
+  const p = DB.products.find(x=>x.id===document.getElementById(pre+'_urun').value);
+  if (p && p.tip==='asi')
+    document.getElementById(pre+'_doz').value = num(document.getElementById(pre+'_sise').value) * num(p.doz) || '';
+}
+function saveMove(type){
+  const pre = type==='giris' ? 'g' : 'c';
+  const pid = document.getElementById(pre+'_urun').value;
+  const p = DB.products.find(x=>x.id===pid);
+  if (!p) return toast('Ürün seçiniz!', 'err');
+  const tarih = document.getElementById(pre+'_tarih').value || today();
+  const m = { id: uid(), type, productId: pid, tarih, sise:0, doz:0, kupeSayi:0, seriBas:'', seriBit:'', ilce:'', not: document.getElementById(pre+'_not').value.trim() };
+
+  if (type==='cikis'){
+    m.ilce = document.getElementById('c_ilce').value;
+    if (!m.ilce) return toast('İlçe seçiniz!', 'err');
+  }
+  if (p.tip==='asi'){
+    m.sise = num(document.getElementById(pre+'_sise').value);
+    m.doz  = num(document.getElementById(pre+'_doz').value) || m.sise * num(p.doz);
+    if (m.sise<=0) return toast('Şişe sayısı giriniz!', 'err');
+    if (type==='cikis' && stockOf(p).sise < m.sise) return toast(`Yetersiz stok! Mevcut: ${stockOf(p).sise} şişe`, 'err');
+  } else {
+    m.kupeSayi = num(document.getElementById(pre+'_kupesayi').value);
+    m.seriBas  = document.getElementById(pre+'_seribas').value.trim();
+    m.seriBit  = document.getElementById(pre+'_seribit').value.trim();
+    if (m.kupeSayi<=0) return toast('Küpe sayısı giriniz!', 'err');
+    if (!m.seriBas || !m.seriBit) return toast('Küpe seri aralığını giriniz!', 'err');
+    if (type==='cikis' && stockOf(p).kupe < m.kupeSayi) return toast(`Yetersiz stok! Mevcut: ${stockOf(p).kupe} küpe`, 'err');
+  }
+  DB.movements.push(m); saveDB(); refreshAll();
+  [pre+'_sise',pre+'_doz',pre+'_kupesayi',pre+'_seribas',pre+'_seribit',pre+'_not'].forEach(i=>document.getElementById(i).value='');
+  toast(type==='giris' ? 'Stok girişi kaydedildi ✓' : 'Stok çıkışı kaydedildi ✓', 'ok');
+}
+function delMove(id){
+  if (!confirm('Bu hareket silinsin mi? Stok geri hesaplanacak.')) return;
+  DB.movements = DB.movements.filter(m=>m.id!==id);
+  saveDB(); refreshAll(); toast('Hareket silindi.', 'ok');
+}
+function moveRows(list, withIlce, withDel){
+  let h = `<tr><th>Tarih</th><th>Tip</th><th>Ürün</th><th>Şişe</th><th>Doz</th><th>Küpe</th><th>Seri Aralığı</th>${withIlce?'<th>İlçe</th>':''}<th>Açıklama</th>${withDel?'<th></th>':''}</tr>`;
+  list.forEach(m=>{
+    const p = DB.products.find(x=>x.id===m.productId) || {ad:'(silinmiş)',tip:'asi'};
+    h += `<tr>
+      <td>${fmtD(m.tarih)}</td>
+      <td><span class="badge ${m.type==='giris'?'b-giris':'b-cikis'}">${m.type==='giris'?'GİRİŞ':'ÇIKIŞ'}</span></td>
+      <td>${esc(p.ad)}</td>
+      <td>${p.tip==='asi'?m.sise:'—'}</td>
+      <td>${p.tip==='asi'?m.doz:'—'}</td>
+      <td>${p.tip==='kupe'?m.kupeSayi:'—'}</td>
+      <td>${p.tip==='kupe'?esc(m.seriBas)+' – '+esc(m.seriBit):'—'}</td>
+      ${withIlce?`<td>${esc(m.ilce)||'—'}</td>`:''}
+      <td>${esc(m.not)||'—'}</td>
+      ${withDel?`<td><button class="btn btn-red btn-sm" onclick="delMove('${m.id}')">Sil</button></td>`:''}
+    </tr>`;
+  });
+  return h;
+}
+function renderMoves(){
+  const g = DB.movements.filter(m=>m.type==='giris').sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  const c = DB.movements.filter(m=>m.type==='cikis').sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  document.getElementById('girisTable').innerHTML = g.length ? moveRows(g,false,true) : '<tr><td class="muted">Henüz giriş hareketi yok.</td></tr>';
+  document.getElementById('cikisTable').innerHTML = c.length ? moveRows(c,true,true) : '<tr><td class="muted">Henüz çıkış hareketi yok.</td></tr>';
+}
+
+/* ═══════════════ ANA SAYFA ═══════════════ */
+function renderHome(){
+  const asiler = DB.products.filter(p=>p.tip==='asi');
+  const kupeler = DB.products.filter(p=>p.tip==='kupe');
+  const totSise = asiler.reduce((s,p)=>s+stockOf(p).sise,0);
+  const totDoz  = asiler.reduce((s,p)=>s+stockOf(p).doz,0);
+  const totKupe = kupeler.reduce((s,p)=>s+stockOf(p).kupe,0);
+  const sktWarn = DB.products.filter(p=>{const s=sktStatus(p);return s&&s.days<=30;}).length;
+  document.getElementById('statBox').innerHTML = `
+    <div class="stat"><div class="num">${asiler.length}</div><div class="lbl">Aşı Çeşidi</div></div>
+    <div class="stat s-blue"><div class="num">${totSise.toLocaleString('tr')}</div><div class="lbl">Toplam Şişe Stoku</div></div>
+    <div class="stat s-blue"><div class="num">${totDoz.toLocaleString('tr')}</div><div class="lbl">Toplam Doz Stoku</div></div>
+    <div class="stat s-orange"><div class="num">${totKupe.toLocaleString('tr')}</div><div class="lbl">Toplam Küpe Stoku</div></div>
+    <div class="stat s-red"><div class="num">${sktWarn}</div><div class="lbl">SKT Uyarısı (≤30 gün)</div></div>`;
+
+  const t = document.getElementById('stokTable');
+  if (!DB.products.length){ t.innerHTML = '<tr><td class="muted">Önce "Veri" sekmesinden ürün tanımlayın.</td></tr>'; }
+  else {
+    let h = '<tr><th>Tip</th><th>Ürün</th><th>Şişe Stok</th><th>Doz Stok</th><th>Küpe Stok</th><th>SKT</th><th>Durum</th></tr>';
+    DB.products.forEach(p=>{
+      const s = stockOf(p), st = sktStatus(p);
+      h += `<tr>
+        <td><span class="badge ${p.tip==='asi'?'b-asi':'b-kupe'}">${p.tip==='asi'?'AŞI':'KÜPE'}</span></td>
+        <td><b>${esc(p.ad)}</b></td>
+        <td>${p.tip==='asi'?s.sise.toLocaleString('tr'):'—'}</td>
+        <td>${p.tip==='asi'?s.doz.toLocaleString('tr'):'—'}</td>
+        <td>${p.tip==='kupe'?s.kupe.toLocaleString('tr'):'—'}</td>
+        <td>${p.tip==='asi'?fmtD(p.skt):'—'}</td>
+        <td>${st?`<span class="badge ${st.cls}">${st.txt}</span>`:'—'}</td></tr>`;
+    });
+    t.innerHTML = h;
+  }
+  const son = [...DB.movements].sort((a,b)=>b.tarih.localeCompare(a.tarih)||b.id.localeCompare(a.id)).slice(0,10);
+  document.getElementById('sonHareketTable').innerHTML = son.length ? moveRows(son,true,false) : '<tr><td class="muted">Henüz hareket yok.</td></tr>';
+}
+
+/* ═══════════════ RAPORLAR ═══════════════ */
+let raporTipi = 'gunluk';
+let lastReport = { title:'Rapor', headers:[], rows:[] };
+
+function setRapor(tip, btn){
+  raporTipi = tip;
+  document.querySelectorAll('#raporSeg button').forEach(b=>b.classList.toggle('on', b===btn));
+  document.getElementById('rf-gun').classList.toggle('hidden', tip!=='gunluk');
+  document.getElementById('rf-ay').classList.toggle('hidden', tip!=='aylik');
+  document.getElementById('rf-yil').classList.toggle('hidden', tip!=='yillik');
+  document.getElementById('rf-ilce').classList.toggle('hidden', tip!=='ilce');
+  runRapor();
+}
+function prodName(id){ const p=DB.products.find(x=>x.id===id); return p?p.ad:'(silinmiş)'; }
+function prodTip(id){ const p=DB.products.find(x=>x.id===id); return p?p.tip:'asi'; }
+
+function movementReport(list, title){
+  const headers = ['Tarih','Hareket','Ürün Tipi','Ürün','Şişe','Doz','Küpe Sayısı','Seri Başlangıç','Seri Bitiş','İlçe','Açıklama'];
+  const rows = list.sort((a,b)=>a.tarih.localeCompare(b.tarih)).map(m=>[
+    fmtD(m.tarih), m.type==='giris'?'GİRİŞ':'ÇIKIŞ',
+    prodTip(m.productId)==='asi'?'Aşı':'Küpe', prodName(m.productId),
+    m.sise||'', m.doz||'', m.kupeSayi||'', m.seriBas||'', m.seriBit||'', m.ilce||'', m.not||''
+  ]);
+  const gIn = list.filter(m=>m.type==='giris'), gOut = list.filter(m=>m.type==='cikis');
+  const ozet = `<div class="alert alert-info">📌 <div><b>${title}</b> — Toplam ${list.length} hareket | Giriş: ${gIn.length} kayıt (${gIn.reduce((s,m)=>s+num(m.sise),0)} şişe, ${gIn.reduce((s,m)=>s+num(m.doz),0)} doz, ${gIn.reduce((s,m)=>s+num(m.kupeSayi),0)} küpe) | Çıkış: ${gOut.length} kayıt (${gOut.reduce((s,m)=>s+num(m.sise),0)} şişe, ${gOut.reduce((s,m)=>s+num(m.doz),0)} doz, ${gOut.reduce((s,m)=>s+num(m.kupeSayi),0)} küpe)</div></div>`;
+  return { title, headers, rows, ozet };
+}
+
+function buildRapor(){
+  if (raporTipi==='gunluk'){
+    const g = document.getElementById('r_gun').value || today();
+    return movementReport(DB.movements.filter(m=>m.tarih===g), 'Günlük Rapor — '+fmtD(g));
+  }
+  if (raporTipi==='aylik'){
+    const a = document.getElementById('r_ay').value || today().slice(0,7);
+    return movementReport(DB.movements.filter(m=>m.tarih.startsWith(a)), 'Aylık Rapor — '+a.split('-').reverse().join('.'));
+  }
+  if (raporTipi==='yillik'){
+    const y = document.getElementById('r_yil').value || today().slice(0,4);
+    return movementReport(DB.movements.filter(m=>m.tarih.startsWith(y)), 'Yıllık Rapor — '+y);
+  }
+  if (raporTipi==='asi'){
+    const headers = ['Aşı İsmi','Doz/Şişe','Başlangıç Şişe','Toplam Giriş (Şişe)','Toplam Çıkış (Şişe)','Kalan Şişe','Kalan Doz','SKT','Durum'];
+    const rows = DB.products.filter(p=>p.tip==='asi').map(p=>{
+      const gIn  = DB.movements.filter(m=>m.productId===p.id&&m.type==='giris').reduce((s,m)=>s+num(m.sise),0);
+      const gOut = DB.movements.filter(m=>m.productId===p.id&&m.type==='cikis').reduce((s,m)=>s+num(m.sise),0);
+      const s = stockOf(p), st = sktStatus(p);
+      return [p.ad, p.doz, p.sise, gIn, gOut, s.sise, s.doz, fmtD(p.skt), st?st.txt:''];
+    });
+    return { title:'Aşı Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Aşı Raporu</b> — ${rows.length} aşı çeşidi</div></div>` };
+  }
+  if (raporTipi==='kupe'){
+    const headers = ['Küpe Ürünü','Başlangıç Sayı','Tanımlı Seri Aralığı','Toplam Giriş','Toplam Çıkış','Kalan Küpe'];
+    const rows = DB.products.filter(p=>p.tip==='kupe').map(p=>{
+      const gIn  = DB.movements.filter(m=>m.productId===p.id&&m.type==='giris').reduce((s,m)=>s+num(m.kupeSayi),0);
+      const gOut = DB.movements.filter(m=>m.productId===p.id&&m.type==='cikis').reduce((s,m)=>s+num(m.kupeSayi),0);
+      return [p.ad, p.kupeSayi, p.seriBas+' – '+p.seriBit, gIn, gOut, stockOf(p).kupe];
+    });
+    return { title:'Küpe Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Küpe Raporu</b> — ${rows.length} küpe ürünü</div></div>` };
+  }
+  if (raporTipi==='ilce'){
+    const sec = document.getElementById('r_ilce').value;
+    if (sec) return movementReport(DB.movements.filter(m=>m.type==='cikis'&&m.ilce===sec), 'İlçe Raporu — '+sec);
+    const headers = ['İlçe','Çıkış Hareketi','Toplam Şişe','Toplam Doz','Toplam Küpe'];
+    const rows = DB.districts.map(d=>{
+      const ms = DB.movements.filter(m=>m.type==='cikis'&&m.ilce===d);
+      return [d, ms.length, ms.reduce((s,m)=>s+num(m.sise),0), ms.reduce((s,m)=>s+num(m.doz),0), ms.reduce((s,m)=>s+num(m.kupeSayi),0)];
+    });
+    return { title:'İlçe Raporu (Özet)', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>İlçe Raporu</b> — Tüm ilçelere yapılan çıkışların özeti. Tek ilçenin detayı için yukarıdan ilçe seçin.</div></div>` };
+  }
+  if (raporTipi==='skt'){
+    const headers = ['Aşı İsmi','SKT','Kalan Gün','Kalan Şişe','Kalan Doz','Durum'];
+    const rows = DB.products.filter(p=>p.tip==='asi'&&p.skt)
+      .map(p=>({p, st:sktStatus(p), s:stockOf(p)}))
+      .sort((a,b)=>a.st.days-b.st.days)
+      .map(x=>[x.p.ad, fmtD(x.p.skt), x.st.days, x.s.sise, x.s.doz, x.st.days<0?'SÜRESİ GEÇTİ':(x.st.days<=30?'UYARI – 1 AY İÇİNDE':'Uygun')]);
+    return { title:'Son Kullanma Tarihi (SKT) Raporu', headers, rows, ozet:`<div class="alert alert-warn">⏰ <div><b>SKT Raporu</b> — Son kullanma tarihine göre sıralı. 30 gün ve altı uyarı olarak işaretlenir.</div></div>` };
+  }
+  // stok
+  const headers = ['Tip','Ürün','Şişe Stok','Doz Stok','Küpe Stok','Seri Aralığı','SKT'];
+  const rows = DB.products.map(p=>{
+    const s = stockOf(p);
+    return [p.tip==='asi'?'Aşı':'Küpe', p.ad, p.tip==='asi'?s.sise:'', p.tip==='asi'?s.doz:'', p.tip==='kupe'?s.kupe:'', p.tip==='kupe'?p.seriBas+' – '+p.seriBit:'', p.tip==='asi'?fmtD(p.skt):''];
+  });
+  return { title:'Güncel Stok Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Güncel Stok Raporu</b> — Tüm ürünlerin anlık stok durumu.</div></div>` };
+}
+function runRapor(){
+  const r = buildRapor();
+  lastReport = r;
+  document.getElementById('raporBaslik').textContent = '📄 ' + r.title;
+  document.getElementById('raporOzet').innerHTML = r.ozet || '';
+  const t = document.getElementById('raporTable');
+  if (!r.rows.length){ t.innerHTML = '<tr><td class="muted">Bu kriterlere uygun kayıt bulunamadı.</td></tr>'; return; }
+  t.innerHTML = '<tr>' + r.headers.map(h=>`<th>${esc(h)}</th>`).join('') + '</tr>' +
+    r.rows.map(row=>'<tr>'+row.map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('');
+}
+
+/* ═══════════════ EXCEL EXPORT ═══════════════ */
+function sheetXML(name, headers, rows){
+  const cell = v => {
+    const isNum = typeof v==='number' || (v!=='' && !isNaN(v) && String(v).trim()!=='' && !/^0\d/.test(String(v)));
+    return `<Cell><Data ss:Type="${isNum?'Number':'String'}">${esc(v)}</Data></Cell>`;
+  };
+  let x = `<Worksheet ss:Name="${esc(name).slice(0,30)}"><Table>`;
+  x += '<Row>' + headers.map(h=>`<Cell ss:StyleID="hdr"><Data ss:Type="String">${esc(h)}</Data></Cell>`).join('') + '</Row>';
+  rows.forEach(r=>{ x += '<Row>' + r.map(cell).join('') + '</Row>'; });
+  x += '</Table></Worksheet>';
+  return x;
+}
+function downloadExcel(filename, sheets){
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles><Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#0B5E2A" ss:Pattern="Solid"/></Style></Styles>`;
+  sheets.forEach(s=>{ xml += sheetXML(s.name, s.headers, s.rows); });
+  xml += '</Workbook>';
+  const blob = new Blob(['\ufeff'+xml], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportRapor(){
+  runRapor();
+  if (!lastReport.rows.length) return toast('Aktarılacak veri yok!', 'err');
+  const fn = lastReport.title.replace(/[^\wığüşöçİĞÜŞÖÇ ]/g,'').replace(/ /g,'_') + '_' + today() + '.xls';
+  downloadExcel(fn, [{ name: lastReport.title.slice(0,30), headers: lastReport.headers, rows: lastReport.rows }]);
+  toast('Excel dosyası indirildi ✓', 'ok');
+}
+function exportAllExcel(){
+  const sheets = [];
+  sheets.push({ name:'Ürünler', headers:['Tip','Ürün','Doz/Şişe','Başlangıç Şişe','Başlangıç Küpe','Seri Başlangıç','Seri Bitiş','SKT'],
+    rows: DB.products.map(p=>[p.tip==='asi'?'Aşı':'Küpe', p.ad, p.doz||'', p.sise||'', p.kupeSayi||'', p.seriBas||'', p.seriBit||'', p.skt?fmtD(p.skt):'']) });
+  sheets.push({ name:'Hareketler', headers:['Tarih','Hareket','Ürün','Şişe','Doz','Küpe','Seri Başlangıç','Seri Bitiş','İlçe','Açıklama'],
+    rows: [...DB.movements].sort((a,b)=>a.tarih.localeCompare(b.tarih)).map(m=>[fmtD(m.tarih), m.type==='giris'?'GİRİŞ':'ÇIKIŞ', prodName(m.productId), m.sise||'', m.doz||'', m.kupeSayi||'', m.seriBas||'', m.seriBit||'', m.ilce||'', m.not||'']) });
+  sheets.push({ name:'Güncel Stok', headers:['Tip','Ürün','Şişe Stok','Doz Stok','Küpe Stok'],
+    rows: DB.products.map(p=>{ const s=stockOf(p); return [p.tip==='asi'?'Aşı':'Küpe', p.ad, p.tip==='asi'?s.sise:'', p.tip==='asi'?s.doz:'', p.tip==='kupe'?s.kupe:'']; }) });
+  sheets.push({ name:'İlçeler', headers:['İlçe'], rows: DB.districts.map(d=>[d]) });
+  downloadExcel('Tum_Veriler_'+today()+'.xls', sheets);
+  toast('Tüm veriler Excel olarak indirildi ✓', 'ok');
+}
+
+/* ═══════════════ YEDEKLEME ═══════════════ */
+function downloadBackup(){
+  DB.lastBackup = new Date().toISOString();
+  saveDB();
+  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stok_yedek_' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  renderBackupInfo();
+  toast('Yedek dosyası indirildi ✓', 'ok');
+}
+function restoreBackup(input){
+  const f = input.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.products || !data.movements || !data.districts) throw new Error('format');
+      if (!confirm(`Yedekte ${data.products.length} ürün, ${data.movements.length} hareket, ${data.districts.length} ilçe var.\nMevcut veriler bu yedekle DEĞİŞTİRİLECEK. Devam edilsin mi?`)) return;
+      DB = data; saveDB(); refreshAll();
+      toast('Yedek başarıyla geri yüklendi ✓', 'ok');
+    } catch(err){ toast('Geçersiz yedek dosyası!', 'err'); }
+    input.value = '';
+  };
+  rd.readAsText(f);
+}
+function renderBackupInfo(){
+  document.getElementById('backupInfo').textContent = DB.lastBackup
+    ? 'Son yedek indirme: ' + new Date(DB.lastBackup).toLocaleString('tr-TR')
+    : 'Henüz yedek dosyası indirilmedi.';
+}
+function wipeAll(){
+  if (!confirm('TÜM VERİLER SİLİNECEK! Emin misiniz?')) return;
+  if (!confirm('Bu işlem GERİ ALINAMAZ. Yedek aldınız mı? Yine de silinsin mi?')) return;
+  DB = { products: [], districts: [], movements: [], lastBackup: null };
+  saveDB(); refreshAll(); toast('Tüm veriler sıfırlandı.', 'ok');
+}
+
+/* ═══════════════ BAŞLAT ═══════════════ */
+function refreshAll(){
+  renderSktAlerts(); renderHome(); renderProducts(); renderDistricts();
+  fillSelects(); renderMoves(); renderBackupInfo();
+  toggleMoveFields('g'); toggleMoveFields('c');
+  runRapor();
+}
+(function init(){
+  loadDB();
+  document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('tr-TR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  document.getElementById('g_tarih').value = today();
+  document.getElementById('c_tarih').value = today();
+  document.getElementById('r_gun').value = today();
+  document.getElementById('r_ay').value = today().slice(0,7);
+  document.getElementById('r_yil').value = today().slice(0,4);
+  refreshAll();
+  // 30 günden uzun süredir yedek alınmadıysa hatırlat
+  if (DB.lastBackup && (Date.now() - new Date(DB.lastBackup)) > 30*86400000)
+    setTimeout(()=>toast('⚠️ 30 günden uzun süredir yedek almadınız! Yedekleme sekmesinden yedek indirin.', 'err'), 1200);
+})();
+
+/* ═══════════════ PWA KURULUM ═══════════════ */
+let deferredPrompt = null;
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').classList.add('hidden');
+  toast('Uygulama masaüstüne kuruldu ✓', 'ok');
+});
+function installPWA(){
+  if (!deferredPrompt) return toast('Kurulum şu an kullanılamıyor. Tarayıcı adres çubuğundaki kur simgesini deneyin.', 'err');
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{ deferredPrompt = null; });
+}
+</script>
+</body>
+</html>
