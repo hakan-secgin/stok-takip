@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aşı &amp; Küpe Stok Takip Programı</title>
+<title>Stok Takip Programı</title>
 <meta name="theme-color" content="#0b5e2a">
-<meta name="description" content="Aşı ve küpe stok takip, raporlama ve yedekleme programı">
+<meta name="description" content="Stok takip, raporlama ve yedekleme programı">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -76,7 +76,7 @@
 <body>
 
 <header>
-  <h1>💉 Aşı &amp; Küpe Stok Takip Programı</h1>
+  <h1>📦 Stok Takip Programı</h1>
   <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
     <button id="installBtn" class="btn btn-sm hidden" style="background:#ffd23f; color:#333" onclick="installPWA()">⬇️ Masaüstüne Kur</button>
     <div class="sub" id="todayLbl"></div>
@@ -111,14 +111,30 @@
 <!-- ════════ VERİ ════════ -->
 <div class="tab" id="tab-veri">
   <div class="card">
+    <h2>🏷️ Ürün Tipi Tanımları</h2>
+    <div class="row-flex" style="margin-bottom:12px">
+      <div style="flex:1; min-width:200px">
+        <label>Yeni Ürün Tipi İsmi</label>
+        <input type="text" id="pt_ad" placeholder="örn: İlaç">
+      </div>
+      <div style="min-width:160px">
+        <label>Alan Grubu</label>
+        <select id="pt_group">
+          <option value="asi">💉 Aşı tipi (Doz, Şişe, SKT)</option>
+          <option value="kupe">🏷️ Küpe tipi (Sayı, Seri Aralığı)</option>
+        </select>
+      </div>
+      <button class="btn btn-green" onclick="addProductType()">➕ Tip Ekle</button>
+    </div>
+    <div class="table-wrap"><table id="tipTable"></table></div>
+  </div>
+
+  <div class="card">
     <h2>➕ Yeni Ürün Tanımla</h2>
     <div class="grid">
       <div>
         <label>Ürün Tipi *</label>
-        <select id="p_tip" onchange="toggleProductFields()">
-          <option value="asi">💉 Aşı</option>
-          <option value="kupe">🏷️ Küpe</option>
-        </select>
+        <select id="p_tip" onchange="toggleProductFields()"></select>
       </div>
       <div>
         <label>Ürün İsmi *</label>
@@ -337,27 +353,91 @@
 
 </main>
 
-<footer>Aşı &amp; Küpe Stok Takip Programı — Veriler tarayıcıda saklanır, düzenli yedek almayı unutmayın.</footer>
+<footer>Stok Takip Programı — Veriler tarayıcıda saklanır, düzenli yedek almayı unutmayın.</footer>
 <div class="toast" id="toast"></div>
 
 <script>
 /* ═══════════════ VERİTABANI ═══════════════ */
 const DB_KEY = 'asiKupeStokDB';
 const DB_AUTOBAK = 'asiKupeStokDB_autobackup';
-let DB = { products: [], districts: [], movements: [], lastBackup: null };
+let DB = { productTypes: [], products: [], districts: [], movements: [], lastBackup: null };
+
+const DEFAULT_TYPES = [
+  { id: 'asi', name: 'Aşı', fieldGroup: 'asi' },
+  { id: 'kupe', name: 'Küpe', fieldGroup: 'kupe' }
+];
+
+function initTypes(){
+  if (!DB.productTypes || !DB.productTypes.length){
+    DB.productTypes = DEFAULT_TYPES.map(t=>({...t}));
+  }
+  if (!DB.productTypes.some(t=>t.id===DEFAULT_TYPES[0].id)){
+    DEFAULT_TYPES.forEach(t=>{ if (!DB.productTypes.some(x=>x.id===t.id)) DB.productTypes.push({...t}); });
+  }
+}
+function getTypeInfo(tipId){
+  return DB.productTypes.find(t => t.id === tipId) || DEFAULT_TYPES[0];
+}
+function isAsiGroup(tipId){ return getTypeInfo(tipId).fieldGroup === 'asi'; }
+
+function populateTypeSelect(selId, selected){
+  const sel = document.getElementById(selId);
+  sel.innerHTML = DB.productTypes.map(t =>
+    `<option value="${t.id}">${t.name}</option>`
+  ).join('');
+  if (selected) sel.value = selected;
+}
+function addProductType(){
+  const ad = document.getElementById('pt_ad').value.trim();
+  const group = document.getElementById('pt_group').value;
+  if (!ad) return toast('Ürün tipi ismi giriniz!', 'err');
+  const id = ad.toLowerCase().replace(/[^a-z0-9]/g,'_');
+  if (DB.productTypes.some(t=>t.id===id)) return toast('Bu tip zaten kayıtlı! ('+id+')', 'err');
+  DB.productTypes.push({ id, name: ad, fieldGroup: group });
+  saveDB(); refreshAll();
+  document.getElementById('pt_ad').value='';
+  toast('Ürün tipi eklendi ✓', 'ok');
+}
+function delProductType(id){
+  const used = DB.products.some(p=>p.tip===id);
+  if (used) return toast('Bu tip kullanımda olduğu için silinemez! Önce ürünleri silin.', 'err');
+  if (DEFAULT_TYPES.some(t=>t.id===id)) return toast('Varsayılan tipler silinemez!', 'err');
+  if (!confirm('"' + getTypeInfo(id).name + '" tipi silinsin mi?')) return;
+  DB.productTypes = DB.productTypes.filter(t=>t.id!==id);
+  saveDB(); refreshAll(); toast('Tip silindi.', 'ok');
+}
+function renderTypes(){
+  const t = document.getElementById('tipTable');
+  if (!DB.productTypes.length){ t.innerHTML = '<tr><td class="muted">Henüz ürün tipi tanımlanmadı.</td></tr>'; return; }
+  let h = '<tr><th>#</th><th>Tip İsmi</th><th>Alan Grubu</th><th>Kullanılan Ürün</th><th></th></tr>';
+  DB.productTypes.forEach((tip,i)=>{
+    const used = DB.products.some(p=>p.tip===tip.id);
+    const cnt = DB.products.filter(p=>p.tip===tip.id).length;
+    h += `<tr>
+      <td>${i+1}</td>
+      <td><b>${tip.name}</b></td>
+      <td><span class="badge ${tip.fieldGroup==='asi'?'b-asi':'b-kupe'}">${tip.fieldGroup==='asi'?'Doz/Şişe/SKT':'Sayı/Seri'}</span></td>
+      <td>${cnt} ürün</td>
+      <td>${DEFAULT_TYPES.some(t=>t.id===tip.id) ? '<span class="muted">Varsayılan</span>' : `<button class="btn btn-red btn-sm" onclick="delProductType('${tip.id}')">Sil</button>`}</td>
+    </tr>`;
+  });
+  t.innerHTML = h;
+}
 
 function loadDB(){
   try {
     const raw = localStorage.getItem(DB_KEY);
-    if (raw) { DB = JSON.parse(raw); return; }
+    if (raw) { DB = JSON.parse(raw); initTypes(); return; }
     const bak = localStorage.getItem(DB_AUTOBAK);
-    if (bak) { DB = JSON.parse(bak); toast('Ana kayıt bulunamadı, otomatik yedekten geri yüklendi.', 'ok'); saveDB(); }
+    if (bak) { DB = JSON.parse(bak); initTypes(); toast('Ana kayıt bulunamadı, otomatik yedekten geri yüklendi.', 'ok'); saveDB(); }
   } catch(e) {
     try {
       const bak = localStorage.getItem(DB_AUTOBAK);
-      if (bak) { DB = JSON.parse(bak); toast('Veri bozulmuştu, otomatik yedekten kurtarıldı!', 'ok'); saveDB(); }
+      if (bak) { DB = JSON.parse(bak); initTypes(); toast('Veri bozulmuştu, otomatik yedekten kurtarıldı!', 'ok'); saveDB(); }
     } catch(e2) { toast('Veri okunamadı, boş veritabanı açıldı.', 'err'); }
   }
+  if (!DB.productTypes) DB.productTypes = [];
+  initTypes();
 }
 function saveDB(){
   const json = JSON.stringify(DB);
@@ -398,7 +478,7 @@ function stockOf(p){
 
 /* ═══════════════ SKT KONTROL ═══════════════ */
 function sktStatus(p){
-  if (p.tip!=='asi' || !p.skt) return null;
+  if (!isAsiGroup(p.tip) || !p.skt) return null;
   const diff = Math.ceil((new Date(p.skt) - new Date(today())) / 86400000);
   if (diff < 0)  return { cls:'b-danger', txt:'SÜRESİ GEÇTİ', days:diff };
   if (diff <= 30) return { cls:'b-warn', txt: diff+' gün kaldı', days:diff };
@@ -421,17 +501,19 @@ function renderSktAlerts(){
 
 /* ═══════════════ VERİ SEKMESİ ═══════════════ */
 function toggleProductFields(){
-  const k = document.getElementById('p_tip').value === 'kupe';
-  document.querySelectorAll('.f-asi').forEach(e=>e.classList.toggle('hidden', k));
-  document.querySelectorAll('.f-kupe').forEach(e=>e.classList.toggle('hidden', !k));
+  const tipId = document.getElementById('p_tip').value;
+  const isAsi = tipId ? isAsiGroup(tipId) : true;
+  document.querySelectorAll('.f-asi').forEach(e=>e.classList.toggle('hidden', !isAsi));
+  document.querySelectorAll('.f-kupe').forEach(e=>e.classList.toggle('hidden', isAsi));
 }
 function addProduct(){
   const tip = document.getElementById('p_tip').value;
   const ad  = document.getElementById('p_ad').value.trim();
+  if (!tip) return toast('Ürün tipi seçiniz!', 'err');
   if (!ad) return toast('Ürün ismi giriniz!', 'err');
   if (DB.products.some(p=>p.ad.toLowerCase()===ad.toLowerCase())) return toast('Bu isimde ürün zaten kayıtlı!', 'err');
   const p = { id: uid(), tip, ad, doz:0, sise:0, skt:'', kupeSayi:0, seriBas:'', seriBit:'' };
-  if (tip==='asi'){
+  if (isAsiGroup(tip)){
     p.doz  = num(document.getElementById('p_doz').value);
     p.sise = num(document.getElementById('p_sise').value);
     p.skt  = document.getElementById('p_skt').value;
@@ -441,7 +523,7 @@ function addProduct(){
     p.kupeSayi = num(document.getElementById('p_kupesayi').value);
     p.seriBas  = document.getElementById('p_seribas').value.trim();
     p.seriBit  = document.getElementById('p_seribit').value.trim();
-    if (!p.seriBas || !p.seriBit) return toast('Küpe seri aralığını giriniz!', 'err');
+    if (!p.seriBas || !p.seriBit) return toast('Seri aralığını giriniz!', 'err');
   }
   DB.products.push(p); saveDB(); refreshAll();
   ['p_ad','p_doz','p_sise','p_skt','p_kupesayi','p_seribas','p_seribit'].forEach(i=>document.getElementById(i).value='');
@@ -460,15 +542,17 @@ function renderProducts(){
   let h = '<tr><th>Tip</th><th>Ürün İsmi</th><th>Doz/Şişe</th><th>Şişe (Stok)</th><th>Toplam Doz</th><th>Küpe (Stok)</th><th>Seri Aralığı</th><th>SKT</th><th>Durum</th><th></th></tr>';
   DB.products.forEach(p=>{
     const s = stockOf(p), st = sktStatus(p);
+    const tInfo = getTypeInfo(p.tip);
+    const tipBadgeClass = isAsiGroup(p.tip) ? 'b-asi' : 'b-kupe';
     h += `<tr>
-      <td><span class="badge ${p.tip==='asi'?'b-asi':'b-kupe'}">${p.tip==='asi'?'AŞI':'KÜPE'}</span></td>
+      <td><span class="badge ${tipBadgeClass}">${esc(tInfo.name)}</span></td>
       <td><b>${esc(p.ad)}</b></td>
-      <td>${p.tip==='asi'?p.doz:'—'}</td>
-      <td>${p.tip==='asi'?s.sise:'—'}</td>
-      <td>${p.tip==='asi'?s.doz:'—'}</td>
-      <td>${p.tip==='kupe'?s.kupe:'—'}</td>
-      <td>${p.tip==='kupe'?esc(p.seriBas)+' – '+esc(p.seriBit):'—'}</td>
-      <td>${p.tip==='asi'?fmtD(p.skt):'—'}</td>
+      <td>${isAsiGroup(p.tip)?p.doz:'—'}</td>
+      <td>${isAsiGroup(p.tip)?s.sise:'—'}</td>
+      <td>${isAsiGroup(p.tip)?s.doz:'—'}</td>
+      <td>${!isAsiGroup(p.tip)?s.kupe:'—'}</td>
+      <td>${!isAsiGroup(p.tip)?esc(p.seriBas)+' – '+esc(p.seriBit):'—'}</td>
+      <td>${isAsiGroup(p.tip)?fmtD(p.skt):'—'}</td>
       <td>${st?`<span class="badge ${st.cls}">${st.txt}</span>`:'—'}</td>
       <td><button class="btn btn-red btn-sm" onclick="delProduct('${p.id}')">Sil</button></td>
     </tr>`;
@@ -503,10 +587,11 @@ function renderDistricts(){
 
 /* ═══════════════ STOK GİRİŞ / ÇIKIŞ ═══════════════ */
 function fillSelects(){
+  populateTypeSelect('p_tip');
   ['g_urun','c_urun'].forEach(id=>{
     const sel = document.getElementById(id), cur = sel.value;
     sel.innerHTML = '<option value="">— Ürün seçiniz —</option>' +
-      DB.products.map(p=>`<option value="${p.id}">${p.tip==='asi'?'💉':'🏷️'} ${esc(p.ad)}</option>`).join('');
+      DB.products.map(p=>`<option value="${p.id}">${esc(getTypeInfo(p.tip).name)} ${esc(p.ad)}</option>`).join('');
     sel.value = cur;
   });
   const ic = document.getElementById('c_ilce'), cur2 = ic.value;
@@ -519,13 +604,13 @@ function fillSelects(){
 function toggleMoveFields(pre){
   const pid = document.getElementById(pre+'_urun').value;
   const p = DB.products.find(x=>x.id===pid);
-  const isKupe = p && p.tip==='kupe';
-  document.querySelectorAll('.'+pre+'-asi').forEach(e=>e.classList.toggle('hidden', !p || isKupe));
-  document.querySelectorAll('.'+pre+'-kupe').forEach(e=>e.classList.toggle('hidden', !p || !isKupe));
+  const isAsi = p && isAsiGroup(p.tip);
+  document.querySelectorAll('.'+pre+'-asi').forEach(e=>e.classList.toggle('hidden', !isAsi));
+  document.querySelectorAll('.'+pre+'-kupe').forEach(e=>e.classList.toggle('hidden', isAsi));
 }
 function calcDoz(pre){
   const p = DB.products.find(x=>x.id===document.getElementById(pre+'_urun').value);
-  if (p && p.tip==='asi')
+  if (p && isAsiGroup(p.tip))
     document.getElementById(pre+'_doz').value = num(document.getElementById(pre+'_sise').value) * num(p.doz) || '';
 }
 function saveMove(type){
@@ -540,7 +625,7 @@ function saveMove(type){
     m.ilce = document.getElementById('c_ilce').value;
     if (!m.ilce) return toast('İlçe seçiniz!', 'err');
   }
-  if (p.tip==='asi'){
+  if (isAsiGroup(p.tip)){
     m.sise = num(document.getElementById(pre+'_sise').value);
     m.doz  = num(document.getElementById(pre+'_doz').value) || m.sise * num(p.doz);
     if (m.sise<=0) return toast('Şişe sayısı giriniz!', 'err');
@@ -550,8 +635,8 @@ function saveMove(type){
     m.seriBas  = document.getElementById(pre+'_seribas').value.trim();
     m.seriBit  = document.getElementById(pre+'_seribit').value.trim();
     if (m.kupeSayi<=0) return toast('Küpe sayısı giriniz!', 'err');
-    if (!m.seriBas || !m.seriBit) return toast('Küpe seri aralığını giriniz!', 'err');
-    if (type==='cikis' && stockOf(p).kupe < m.kupeSayi) return toast(`Yetersiz stok! Mevcut: ${stockOf(p).kupe} küpe`, 'err');
+    if (!m.seriBas || !m.seriBit) return toast('Seri aralığını giriniz!', 'err');
+    if (type==='cikis' && stockOf(p).kupe < m.kupeSayi) return toast(`Yetersiz stok! Mevcut: ${stockOf(p).kupe} adet`, 'err');
   }
   DB.movements.push(m); saveDB(); refreshAll();
   [pre+'_sise',pre+'_doz',pre+'_kupesayi',pre+'_seribas',pre+'_seribit',pre+'_not'].forEach(i=>document.getElementById(i).value='');
@@ -565,15 +650,16 @@ function delMove(id){
 function moveRows(list, withIlce, withDel){
   let h = `<tr><th>Tarih</th><th>Tip</th><th>Ürün</th><th>Şişe</th><th>Doz</th><th>Küpe</th><th>Seri Aralığı</th>${withIlce?'<th>İlçe</th>':''}<th>Açıklama</th>${withDel?'<th></th>':''}</tr>`;
   list.forEach(m=>{
-    const p = DB.products.find(x=>x.id===m.productId) || {ad:'(silinmiş)',tip:'asi'};
+    const p = DB.products.find(x=>x.id===m.productId) || {ad:'(silinmiş)',tip:DEFAULT_TYPES[0].id};
+    const isAsi = isAsiGroup(p.tip);
     h += `<tr>
       <td>${fmtD(m.tarih)}</td>
       <td><span class="badge ${m.type==='giris'?'b-giris':'b-cikis'}">${m.type==='giris'?'GİRİŞ':'ÇIKIŞ'}</span></td>
       <td>${esc(p.ad)}</td>
-      <td>${p.tip==='asi'?m.sise:'—'}</td>
-      <td>${p.tip==='asi'?m.doz:'—'}</td>
-      <td>${p.tip==='kupe'?m.kupeSayi:'—'}</td>
-      <td>${p.tip==='kupe'?esc(m.seriBas)+' – '+esc(m.seriBit):'—'}</td>
+      <td>${isAsi?m.sise:'—'}</td>
+      <td>${isAsi?m.doz:'—'}</td>
+      <td>${!isAsi?m.kupeSayi:'—'}</td>
+      <td>${!isAsi?esc(m.seriBas)+' – '+esc(m.seriBit):'—'}</td>
       ${withIlce?`<td>${esc(m.ilce)||'—'}</td>`:''}
       <td>${esc(m.not)||'—'}</td>
       ${withDel?`<td><button class="btn btn-red btn-sm" onclick="delMove('${m.id}')">Sil</button></td>`:''}
@@ -590,32 +676,34 @@ function renderMoves(){
 
 /* ═══════════════ ANA SAYFA ═══════════════ */
 function renderHome(){
-  const asiler = DB.products.filter(p=>p.tip==='asi');
-  const kupeler = DB.products.filter(p=>p.tip==='kupe');
-  const totSise = asiler.reduce((s,p)=>s+stockOf(p).sise,0);
-  const totDoz  = asiler.reduce((s,p)=>s+stockOf(p).doz,0);
-  const totKupe = kupeler.reduce((s,p)=>s+stockOf(p).kupe,0);
+  const asiGroup = DB.products.filter(p=>isAsiGroup(p.tip));
+  const kupeGroup = DB.products.filter(p=>!isAsiGroup(p.tip));
+  const totSise = asiGroup.reduce((s,p)=>s+stockOf(p).sise,0);
+  const totDoz  = asiGroup.reduce((s,p)=>s+stockOf(p).doz,0);
+  const totKupe = kupeGroup.reduce((s,p)=>s+stockOf(p).kupe,0);
   const sktWarn = DB.products.filter(p=>{const s=sktStatus(p);return s&&s.days<=30;}).length;
   document.getElementById('statBox').innerHTML = `
-    <div class="stat"><div class="num">${asiler.length}</div><div class="lbl">Aşı Çeşidi</div></div>
+    <div class="stat"><div class="num">${DB.products.length}</div><div class="lbl">Toplam Ürün</div></div>
     <div class="stat s-blue"><div class="num">${totSise.toLocaleString('tr')}</div><div class="lbl">Toplam Şişe Stoku</div></div>
     <div class="stat s-blue"><div class="num">${totDoz.toLocaleString('tr')}</div><div class="lbl">Toplam Doz Stoku</div></div>
-    <div class="stat s-orange"><div class="num">${totKupe.toLocaleString('tr')}</div><div class="lbl">Toplam Küpe Stoku</div></div>
+    <div class="stat s-orange"><div class="num">${totKupe.toLocaleString('tr')}</div><div class="lbl">Toplam Adet Stoku</div></div>
     <div class="stat s-red"><div class="num">${sktWarn}</div><div class="lbl">SKT Uyarısı (≤30 gün)</div></div>`;
 
   const t = document.getElementById('stokTable');
   if (!DB.products.length){ t.innerHTML = '<tr><td class="muted">Önce "Veri" sekmesinden ürün tanımlayın.</td></tr>'; }
   else {
-    let h = '<tr><th>Tip</th><th>Ürün</th><th>Şişe Stok</th><th>Doz Stok</th><th>Küpe Stok</th><th>SKT</th><th>Durum</th></tr>';
+    let h = '<tr><th>Tip</th><th>Ürün</th><th>Şişe Stok</th><th>Doz Stok</th><th>Adet Stok</th><th>SKT</th><th>Durum</th></tr>';
     DB.products.forEach(p=>{
       const s = stockOf(p), st = sktStatus(p);
+      const tInfo = getTypeInfo(p.tip);
+      const tipBadgeClass = isAsiGroup(p.tip) ? 'b-asi' : 'b-kupe';
       h += `<tr>
-        <td><span class="badge ${p.tip==='asi'?'b-asi':'b-kupe'}">${p.tip==='asi'?'AŞI':'KÜPE'}</span></td>
+        <td><span class="badge ${tipBadgeClass}">${esc(tInfo.name)}</span></td>
         <td><b>${esc(p.ad)}</b></td>
-        <td>${p.tip==='asi'?s.sise.toLocaleString('tr'):'—'}</td>
-        <td>${p.tip==='asi'?s.doz.toLocaleString('tr'):'—'}</td>
-        <td>${p.tip==='kupe'?s.kupe.toLocaleString('tr'):'—'}</td>
-        <td>${p.tip==='asi'?fmtD(p.skt):'—'}</td>
+        <td>${isAsiGroup(p.tip)?s.sise.toLocaleString('tr'):'—'}</td>
+        <td>${isAsiGroup(p.tip)?s.doz.toLocaleString('tr'):'—'}</td>
+        <td>${!isAsiGroup(p.tip)?s.kupe.toLocaleString('tr'):'—'}</td>
+        <td>${isAsiGroup(p.tip)?fmtD(p.skt):'—'}</td>
         <td>${st?`<span class="badge ${st.cls}">${st.txt}</span>`:'—'}</td></tr>`;
     });
     t.innerHTML = h;
@@ -638,13 +726,13 @@ function setRapor(tip, btn){
   runRapor();
 }
 function prodName(id){ const p=DB.products.find(x=>x.id===id); return p?p.ad:'(silinmiş)'; }
-function prodTip(id){ const p=DB.products.find(x=>x.id===id); return p?p.tip:'asi'; }
+function prodTip(id){ const p=DB.products.find(x=>x.id===id); return p ? getTypeInfo(p.tip).name : DEFAULT_TYPES[0].name; }
 
 function movementReport(list, title){
   const headers = ['Tarih','Hareket','Ürün Tipi','Ürün','Şişe','Doz','Küpe Sayısı','Seri Başlangıç','Seri Bitiş','İlçe','Açıklama'];
   const rows = list.sort((a,b)=>a.tarih.localeCompare(b.tarih)).map(m=>[
     fmtD(m.tarih), m.type==='giris'?'GİRİŞ':'ÇIKIŞ',
-    prodTip(m.productId)==='asi'?'Aşı':'Küpe', prodName(m.productId),
+    prodTip(m.productId), prodName(m.productId),
     m.sise||'', m.doz||'', m.kupeSayi||'', m.seriBas||'', m.seriBit||'', m.ilce||'', m.not||''
   ]);
   const gIn = list.filter(m=>m.type==='giris'), gOut = list.filter(m=>m.type==='cikis');
@@ -666,23 +754,25 @@ function buildRapor(){
     return movementReport(DB.movements.filter(m=>m.tarih.startsWith(y)), 'Yıllık Rapor — '+y);
   }
   if (raporTipi==='asi'){
-    const headers = ['Aşı İsmi','Doz/Şişe','Başlangıç Şişe','Toplam Giriş (Şişe)','Toplam Çıkış (Şişe)','Kalan Şişe','Kalan Doz','SKT','Durum'];
-    const rows = DB.products.filter(p=>p.tip==='asi').map(p=>{
+    const asiProducts = DB.products.filter(p=>isAsiGroup(p.tip));
+    const headers = ['Ürün İsmi','Doz/Şişe','Başlangıç Şişe','Toplam Giriş (Şişe)','Toplam Çıkış (Şişe)','Kalan Şişe','Kalan Doz','SKT','Durum'];
+    const rows = asiProducts.map(p=>{
       const gIn  = DB.movements.filter(m=>m.productId===p.id&&m.type==='giris').reduce((s,m)=>s+num(m.sise),0);
       const gOut = DB.movements.filter(m=>m.productId===p.id&&m.type==='cikis').reduce((s,m)=>s+num(m.sise),0);
       const s = stockOf(p), st = sktStatus(p);
       return [p.ad, p.doz, p.sise, gIn, gOut, s.sise, s.doz, fmtD(p.skt), st?st.txt:''];
     });
-    return { title:'Aşı Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Aşı Raporu</b> — ${rows.length} aşı çeşidi</div></div>` };
+    return { title:'Doz/Şişe/SKT Grubu Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Doz/Şişe/SKT Raporu</b> — ${rows.length} ürün</div></div>` };
   }
   if (raporTipi==='kupe'){
-    const headers = ['Küpe Ürünü','Başlangıç Sayı','Tanımlı Seri Aralığı','Toplam Giriş','Toplam Çıkış','Kalan Küpe'];
-    const rows = DB.products.filter(p=>p.tip==='kupe').map(p=>{
+    const kupeProducts = DB.products.filter(p=>!isAsiGroup(p.tip));
+    const headers = ['Ürün İsmi','Başlangıç Sayı','Tanımlı Seri Aralığı','Toplam Giriş','Toplam Çıkış','Kalan Adet'];
+    const rows = kupeProducts.map(p=>{
       const gIn  = DB.movements.filter(m=>m.productId===p.id&&m.type==='giris').reduce((s,m)=>s+num(m.kupeSayi),0);
       const gOut = DB.movements.filter(m=>m.productId===p.id&&m.type==='cikis').reduce((s,m)=>s+num(m.kupeSayi),0);
       return [p.ad, p.kupeSayi, p.seriBas+' – '+p.seriBit, gIn, gOut, stockOf(p).kupe];
     });
-    return { title:'Küpe Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Küpe Raporu</b> — ${rows.length} küpe ürünü</div></div>` };
+    return { title:'Adet/Seri Grubu Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Adet/Seri Raporu</b> — ${rows.length} ürün</div></div>` };
   }
   if (raporTipi==='ilce'){
     const sec = document.getElementById('r_ilce').value;
@@ -695,18 +785,19 @@ function buildRapor(){
     return { title:'İlçe Raporu (Özet)', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>İlçe Raporu</b> — Tüm ilçelere yapılan çıkışların özeti. Tek ilçenin detayı için yukarıdan ilçe seçin.</div></div>` };
   }
   if (raporTipi==='skt'){
-    const headers = ['Aşı İsmi','SKT','Kalan Gün','Kalan Şişe','Kalan Doz','Durum'];
-    const rows = DB.products.filter(p=>p.tip==='asi'&&p.skt)
+    const headers = ['Ürün İsmi','SKT','Kalan Gün','Kalan Şişe','Kalan Doz','Durum'];
+    const rows = DB.products.filter(p=>isAsiGroup(p.tip)&&p.skt)
       .map(p=>({p, st:sktStatus(p), s:stockOf(p)}))
       .sort((a,b)=>a.st.days-b.st.days)
       .map(x=>[x.p.ad, fmtD(x.p.skt), x.st.days, x.s.sise, x.s.doz, x.st.days<0?'SÜRESİ GEÇTİ':(x.st.days<=30?'UYARI – 1 AY İÇİNDE':'Uygun')]);
-    return { title:'Son Kullanma Tarihi (SKT) Raporu', headers, rows, ozet:`<div class="alert alert-warn">⏰ <div><b>SKT Raporu</b> — Son kullanma tarihine göre sıralı. 30 gün ve altı uyarı olarak işaretlenir.</div></div>` };
+    return { title:'Son Kullanma Tarihi (SKT) Raporu', headers, rows, ozet:`<div class="alert alert-warn">⏰ <div><b>SKT Raporu</b> — ${rows.length} ürün listeleniyor. 30 gün ve altı uyarı olarak işaretlenir.</div></div>` };
   }
   // stok
-  const headers = ['Tip','Ürün','Şişe Stok','Doz Stok','Küpe Stok','Seri Aralığı','SKT'];
+  const headers = ['Tip','Ürün','Şişe Stok','Doz Stok','Adet Stok','Seri Aralığı','SKT'];
   const rows = DB.products.map(p=>{
     const s = stockOf(p);
-    return [p.tip==='asi'?'Aşı':'Küpe', p.ad, p.tip==='asi'?s.sise:'', p.tip==='asi'?s.doz:'', p.tip==='kupe'?s.kupe:'', p.tip==='kupe'?p.seriBas+' – '+p.seriBit:'', p.tip==='asi'?fmtD(p.skt):''];
+    const tInfo = getTypeInfo(p.tip);
+    return [tInfo.name, p.ad, isAsiGroup(p.tip)?s.sise:'', isAsiGroup(p.tip)?s.doz:'', !isAsiGroup(p.tip)?s.kupe:'', !isAsiGroup(p.tip)?p.seriBas+' – '+p.seriBit:'', isAsiGroup(p.tip)?fmtD(p.skt):''];
   });
   return { title:'Güncel Stok Raporu', headers, rows, ozet:`<div class="alert alert-info">📌 <div><b>Güncel Stok Raporu</b> — Tüm ürünlerin anlık stok durumu.</div></div>` };
 }
@@ -756,12 +847,12 @@ function exportRapor(){
 }
 function exportAllExcel(){
   const sheets = [];
-  sheets.push({ name:'Ürünler', headers:['Tip','Ürün','Doz/Şişe','Başlangıç Şişe','Başlangıç Küpe','Seri Başlangıç','Seri Bitiş','SKT'],
-    rows: DB.products.map(p=>[p.tip==='asi'?'Aşı':'Küpe', p.ad, p.doz||'', p.sise||'', p.kupeSayi||'', p.seriBas||'', p.seriBit||'', p.skt?fmtD(p.skt):'']) });
-  sheets.push({ name:'Hareketler', headers:['Tarih','Hareket','Ürün','Şişe','Doz','Küpe','Seri Başlangıç','Seri Bitiş','İlçe','Açıklama'],
+  sheets.push({ name:'Ürünler', headers:['Tip','Ürün','Doz/Şişe','Başlangıç Şişe','Başlangıç Adet','Seri Başlangıç','Seri Bitiş','SKT'],
+    rows: DB.products.map(p=>[getTypeInfo(p.tip).name, p.ad, p.doz||'', p.sise||'', p.kupeSayi||'', p.seriBas||'', p.seriBit||'', p.skt?fmtD(p.skt):'']) });
+  sheets.push({ name:'Hareketler', headers:['Tarih','Hareket','Ürün','Şişe','Doz','Adet','Seri Başlangıç','Seri Bitiş','İlçe','Açıklama'],
     rows: [...DB.movements].sort((a,b)=>a.tarih.localeCompare(b.tarih)).map(m=>[fmtD(m.tarih), m.type==='giris'?'GİRİŞ':'ÇIKIŞ', prodName(m.productId), m.sise||'', m.doz||'', m.kupeSayi||'', m.seriBas||'', m.seriBit||'', m.ilce||'', m.not||'']) });
-  sheets.push({ name:'Güncel Stok', headers:['Tip','Ürün','Şişe Stok','Doz Stok','Küpe Stok'],
-    rows: DB.products.map(p=>{ const s=stockOf(p); return [p.tip==='asi'?'Aşı':'Küpe', p.ad, p.tip==='asi'?s.sise:'', p.tip==='asi'?s.doz:'', p.tip==='kupe'?s.kupe:'']; }) });
+  sheets.push({ name:'Güncel Stok', headers:['Tip','Ürün','Şişe Stok','Doz Stok','Adet Stok'],
+    rows: DB.products.map(p=>{ const s=stockOf(p); const tInfo=getTypeInfo(p.tip); return [tInfo.name, p.ad, isAsiGroup(p.tip)?s.sise:'', isAsiGroup(p.tip)?s.doz:'', !isAsiGroup(p.tip)?s.kupe:'']; }) });
   sheets.push({ name:'İlçeler', headers:['İlçe'], rows: DB.districts.map(d=>[d]) });
   downloadExcel('Tum_Veriler_'+today()+'.xls', sheets);
   toast('Tüm veriler Excel olarak indirildi ✓', 'ok');
@@ -810,7 +901,7 @@ function wipeAll(){
 
 /* ═══════════════ BAŞLAT ═══════════════ */
 function refreshAll(){
-  renderSktAlerts(); renderHome(); renderProducts(); renderDistricts();
+  renderSktAlerts(); renderHome(); renderProducts(); renderTypes(); renderDistricts();
   fillSelects(); renderMoves(); renderBackupInfo();
   toggleMoveFields('g'); toggleMoveFields('c');
   runRapor();

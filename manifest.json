@@ -1,7 +1,7 @@
 {
-  "name": "Aşı & Küpe Stok Takip Programı",
+  "name": "Stok Takip Programı",
   "short_name": "Stok Takip",
-  "description": "Aşı ve küpe stok takip, raporlama ve yedekleme programı",
+  "description": "Stok takip, raporlama ve yedekleme programı",
   "lang": "tr",
   "start_url": "./",
   "scope": "./",
